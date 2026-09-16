@@ -5,6 +5,7 @@ requires-python = ">=3.13"
 [manifest]
 members = [
     "day2",
+    "day3",
     "python-learning",
 ]
 
@@ -160,6 +161,11 @@ wheels = [
 name = "day2"
 version = "0.1.0"
 source = { virtual = "day2" }
+
+[[package]]
+name = "day3"
+version = "0.1.0"
+source = { virtual = "day3" }
 
 [[package]]
 name = "idna"
