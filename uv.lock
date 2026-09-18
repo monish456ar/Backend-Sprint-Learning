@@ -6,6 +6,8 @@ requires-python = ">=3.13"
 members = [
     "day2",
     "day3",
+    "day4",
+    "day5",
     "python-learning",
 ]
 
@@ -166,6 +168,16 @@ source = { virtual = "day2" }
 name = "day3"
 version = "0.1.0"
 source = { virtual = "day3" }
+
+[[package]]
+name = "day4"
+version = "0.1.0"
+source = { virtual = "day4" }
+
+[[package]]
+name = "day5"
+version = "0.1.0"
+source = { virtual = "day5" }
 
 [[package]]
 name = "idna"

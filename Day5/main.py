@@ -103,7 +103,8 @@ def main() -> None:
         try:
             find_book("999")
         except ResourceNotFoundError as e:
-            print(f"Caught Error -> {e.message} (Type: {e.resource_type}, ID: {e.resource_id})")
+            print(f" {e}")
+            # print(f"Caught Error -> {e.message} (Type: {e.resource_type}, ID: {e.resource_id})")
 
         # 11b. InvalidInputError (Invalid fine rate)
         print("\n[Testing Invalid Input: Negative Fine Rate]")
