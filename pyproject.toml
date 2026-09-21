@@ -14,4 +14,10 @@ members = [
     "day3",
     "day4",
     "day5",
+    "Day6"
+]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
 ]
