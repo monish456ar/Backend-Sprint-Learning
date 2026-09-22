@@ -15,7 +15,7 @@ class User:
 
 class UserValidator:
     def validate(self, item: User) -> bool:
-        return item.age
+        return item
 
 
 
@@ -47,7 +47,7 @@ print(validated_users)
 
 
 # 2. Create pipeline
-user_pipeline = Pipeline(validated_users)
+user_pipeline = Pipeline(users)
 
 
 # 3. Filter
