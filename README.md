@@ -14,6 +14,7 @@ A structured, hands-on learning repository tracking daily Python concepts, exerc
 | **Day 4** | **OOP & Dataclasses** | Classes, inheritance, `super()`, `@property`, `@staticmethod`, `@dataclass` | [`Day4/`](./Day4/README.md) |
 | **Day 5** | **Exceptions & Packages** | Custom exceptions, `try-except-else-finally`, Context Managers (`with`), modular packages | [`Day5/`](./Day5/README.md) |
 | **Day 6** | **Advanced Typing & Generics** | `TypeVar`, `Generic[T]`, `Protocol`, `TypedDict`, `Literal`, `Final`, `@overload` | [`Day6/`](./Day6/README.md) |
+| **Day 7** | **Decorators & Higher-Order Functions** | First-class functions, Closures, `@wraps`, Retry, Cache, Type-check, Stacked decorators | [`Day7/`](./Day7/README.md) |
 
 ---
 
@@ -39,11 +40,16 @@ python-learning/
 │   ├── main.py
 │   ├── pratice.py
 │   └── library/
-└── Day6/                    # Day 6: Generic Data Processing Pipeline
+├── Day6/                    # Day 6: Generic Data Processing Pipeline
+│   ├── README.md
+│   ├── model.py
+│   ├── main.py
+│   ├── book.py
+│   └── pratice.py
+└── Day7/                    # Day 7: Decorators & Higher-Order Functions
     ├── README.md
     ├── model.py
     ├── main.py
-    ├── book.py
     └── pratice.py
 ```
 
