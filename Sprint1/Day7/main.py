@@ -217,13 +217,15 @@ print("Result:", add(10, 20))
 
 print("\n--- Retry Decorator ---")
 
-
 def retry(attempts, delay):
     def decorator(func):
         @wraps(func)
         def wrapper(*args, **kwargs):
-
+              
             for attempt in range(attempts):
+                if attempts <3:
+                    raise Exception("Attempts could be greater then 2")
+
                 try:
                     return func(*args, **kwargs)
                 except Exception:
@@ -242,7 +244,7 @@ def retry(attempts, delay):
 count = 0
 
 
-@retry(attempts=3, delay=1)
+@retry(attempts=4, delay=1)
 def test_retry():
     global count
 

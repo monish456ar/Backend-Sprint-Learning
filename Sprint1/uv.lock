@@ -14,6 +14,8 @@ members = [
     "day5",
     "day6",
     "day7",
+    "day8",
+    "day9",
     "python-learning",
 ]
 
@@ -258,6 +260,16 @@ source = { virtual = "Day6" }
 name = "day7"
 version = "0.1.0"
 source = { virtual = "day7" }
+
+[[package]]
+name = "day8"
+version = "0.1.0"
+source = { virtual = "day8" }
+
+[[package]]
+name = "day9"
+version = "0.1.0"
+source = { virtual = "day9" }
 
 [[package]]
 name = "idna"
