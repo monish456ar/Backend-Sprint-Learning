@@ -2,8 +2,10 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict
+import os
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
+from app.config import settings
 from app.routes import film_routes, review_routes, auth_routes
 
 logger = logging.getLogger("uvicorn.default")
@@ -11,28 +13,26 @@ logger = logging.getLogger("uvicorn.default")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Structured startup log
+    # Structured startup log verifying config loading
     logger.info("==> [STARTUP] Film Review Platform API skeleton starting up")
+    logger.info(f"==> [STARTUP] Loaded configuration: api_version={settings.api_version}")
     yield
     # Structured shutdown log
     logger.info("==> [SHUTDOWN] Film Review Platform API skeleton shutting down")
 
 
 app = FastAPI(
-    title="Film Review Platform API Day2",
-    description="Minimal FastAPI API skeleton demonstrating Route -> Handler -> Service -> DAO architecture.",
+    title="Film Review Platform API Day3",
+    description="FastAPI API skeleton demonstrating Configuration & Shared Dependencies (BaseSettings, Depends, trace ID, placeholder DB).",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-
-from fastapi import Response, status
+# print("db_url  =", os.getenv("DATABASE_URL"))
 
 @app.get("/health", tags=["Health"], summary="Health check endpoint")
 def health_check(response: Response) -> Dict[str, Any]:
     try:
-        # Check dependencies / database here if needed
-        # raise RuntimeError("Database connection failed")
         return {
             "status": "ok",
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -44,7 +44,6 @@ def health_check(response: Response) -> Dict[str, Any]:
             "error": str(e),
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-
 
 
 # Register all routers under /api/v1 prefix

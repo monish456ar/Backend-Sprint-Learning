@@ -40,6 +40,9 @@ Client JSON Response
 
 ```text
 day2/
+├── Dockerfile
+├── .dockerignore
+├── docker-compose.yml
 ├── README.md
 ├── main.py
 ├── pyproject.toml
@@ -69,13 +72,28 @@ day2/
 
 ## Running the API
 
-From `Sprint2/day2/`:
+### Option A: Using Docker (Recommended)
 
-To run the dev server:
+1. Make sure **Docker Desktop** is running on your machine.
+2. From `Sprint2/day2/`:
+
+```powershell
+# Using Docker Compose (includes live-reload on code change)
+docker compose up --build
+
+# Or using plain Docker CLI:
+docker build -t film-api-day2 .
+docker run -p 8000:8000 --name film-api-day2 film-api-day2
+```
+
+### Option B: Using Local Python / UV
 
 ```powershell
 uv run python main.py
+# or
+uv run uvicorn app.main:app --reload
 ```
+
 - **Interactive API Documentation (Swagger)**: http://127.0.0.1:8000/docs
 - **ReDoc Documentation**: http://127.0.0.1:8000/redoc
 - **Health Check**: http://127.0.0.1:8000/health
