@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     token_expire_minutes: int
     allowed_cors_origins: str
     api_version: str
-    redis_url:str
+    # redis_url:str
 
-    model_config = SettingsConfigDict(env_file=".env")
+    model_config = SettingsConfigDict(env_file=".env",extra="ignore")
 
 
 settings = Settings()
