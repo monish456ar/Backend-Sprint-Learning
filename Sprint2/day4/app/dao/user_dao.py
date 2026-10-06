@@ -72,22 +72,24 @@ class UserDAO:
     @staticmethod
     async def authenticate_user(
         db: AsyncSession, credentials: Dict[str, Any]
-    ) -> Optional[Dict[str, Any]]:
-        """Authenticates user credentials against PostgreSQL using select()."""
+    ) -> Optional[User]:
+        """Authenticates user credentials by finding user and verifying password."""
+        from app.dependencies.security import verify_password
+
         username = credentials.get("username")
         password = credentials.get("password")
-        stmt = select(User).where(User.username == username, User.password == password)
-        result = await db.execute(stmt)
-        user = result.scalar_one_or_none()
+        if not username or not password:
+            return None
+
+        user = await UserDAO.get_user_by_username(db, username)
         if not user:
             return None
-        return {
-            "status": "authenticated",
-            "access_token": f"jwt-token-{user.id}",
-            "token_type": "bearer",
-            "username": user.username,
-            "role": user.role,
-        }
+
+        if not verify_password(password, user.password):
+            return None
+
+        return user
+
 
     @staticmethod
     async def get_current_user(

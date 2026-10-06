@@ -174,13 +174,27 @@ class ReviewService:
         return updated_review
 
     @classmethod
-    async def remove_review(cls, db: AsyncSession, review_id: UUID) -> bool:
-        """Deletes review. Raises ReviewNotFoundError if review does not exist."""
+    async def remove_review(
+        cls,
+        db: AsyncSession,
+        review_id: UUID,
+        current_user_id: Optional[UUID] = None,
+    ) -> bool:
+        """Deletes review. Enforces ownership if current_user_id provided. Raises ReviewNotFoundError if review does not exist."""
         logger.debug("Starting review deletion for id %s", review_id)
         review = await ReviewDAO.get_review_by_id(db, review_id)
         if review is None:
             logger.warning("Review %s not found for deletion", review_id)
             raise ReviewNotFoundError(review_id)
+
+        if current_user_id and review.user_id != current_user_id:
+            logger.warning(
+                "User %s is not owner of review %s (owner: %s)",
+                current_user_id,
+                review_id,
+                review.user_id,
+            )
+            raise ReviewNotOwnerError(review_id=review_id, user_id=current_user_id)
 
         deleted = await ReviewDAO.delete_review(db, review_id)
         if not deleted:
@@ -189,6 +203,7 @@ class ReviewService:
 
         logger.info("Review %s deleted successfully", review_id)
         return True
+
 
 
 # Backward-compatible function aliases

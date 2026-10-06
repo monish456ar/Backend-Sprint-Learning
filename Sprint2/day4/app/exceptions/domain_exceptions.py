@@ -133,3 +133,48 @@ class FilmHasActiveReviewsError(DomainException):
             or f"Film has {active_review_count} active review(s). Remove reviews before soft deleting the film.",
             error_type="FilmHasActiveReviews",
         )
+
+
+class InvalidCredentialsError(DomainException):
+    """Raised when invalid login credentials are provided."""
+
+    def __init__(self, detail: Optional[str] = None) -> None:
+        super().__init__(
+            message="Invalid username or password.",
+            detail=detail or "Could not validate credentials with provided username and password.",
+            error_type="InvalidCredentials",
+        )
+
+
+class InvalidTokenError(DomainException):
+    """Raised when a JWT token is invalid, malformed, or missing required claims."""
+
+    def __init__(self, detail: Optional[str] = None) -> None:
+        super().__init__(
+            message="Could not validate credentials.",
+            detail=detail or "Authentication token is invalid or malformed.",
+            error_type="InvalidToken",
+        )
+
+
+class TokenExpiredError(DomainException):
+    """Raised when a JWT token has expired."""
+
+    def __init__(self, detail: Optional[str] = None) -> None:
+        super().__init__(
+            message="Token has expired.",
+            detail=detail or "Authentication token has expired. Please log in again or refresh your token.",
+            error_type="TokenExpired",
+        )
+
+
+class InvalidRefreshTokenError(DomainException):
+    """Raised when an invalid or non-refresh token is submitted to the refresh endpoint."""
+
+    def __init__(self, detail: Optional[str] = None) -> None:
+        super().__init__(
+            message="Invalid refresh token.",
+            detail=detail or "Provided token is not a valid refresh token.",
+            error_type="InvalidRefreshToken",
+        )
+

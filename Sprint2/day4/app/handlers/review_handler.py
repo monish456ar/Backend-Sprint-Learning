@@ -48,8 +48,11 @@ async def handle_update_review(
 
 
 async def handle_delete_review(
-    db: AsyncSession, review_id: UUID
+    db: AsyncSession,
+    review_id: UUID,
+    current_user_id: Optional[UUID] = None,
 ) -> Dict[str, Any]:
     """Deletes a review. Domain exceptions bubble up to centralized handlers."""
-    await ReviewService.remove_review(db, review_id)
+    await ReviewService.remove_review(db, review_id, current_user_id=current_user_id)
     return {"message": f"Review {review_id} deleted successfully", "review_id": str(review_id)}
+

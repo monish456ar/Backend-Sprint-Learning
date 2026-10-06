@@ -1,9 +1,10 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 from uuid import UUID
-from fastapi import APIRouter, Depends, Header, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.dependencies import get_config, get_db, Settings
+from app.dependencies import authenticate_user, get_config, get_db, Settings
 from app.handlers import review_handler
+from app.models.user import User
 from app.schemas.review_schemas import ReviewCreate, ReviewResponse, ReviewUpdate
 
 router = APIRouter(tags=["Reviews"])
@@ -12,7 +13,7 @@ router = APIRouter(tags=["Reviews"])
 @router.get(
     "/films/{film_id}/reviews",
     response_model=List[ReviewResponse],
-    summary="Get all reviews for a film",
+    summary="Get all reviews for a film (Public)",
 )
 async def get_film_reviews(
     film_id: UUID,
@@ -24,7 +25,7 @@ async def get_film_reviews(
 
 @router.get(
     "/films/{film_id}/average-rating",
-    summary="Get average rating for a film",
+    summary="Get average rating for a film (Public)",
 )
 async def get_film_average_rating(
     film_id: UUID,
@@ -37,40 +38,52 @@ async def get_film_average_rating(
     "/films/{film_id}/reviews",
     response_model=ReviewResponse,
     status_code=status.HTTP_201_CREATED,
-    summary="Create a review for a film",
+    summary="Create a review for a film (Protected - requires access token)",
 )
 async def create_film_review(
     film_id: UUID,
     payload: ReviewCreate,
-    x_user_id: Optional[UUID] = Header(None, alias="X-User-ID"),
+    current_user: User = Depends(authenticate_user),
     db: AsyncSession = Depends(get_db),
 ) -> ReviewResponse:
     review_data = payload.model_dump(exclude_unset=True)
-    if "user_id" not in review_data and x_user_id:
-        review_data["user_id"] = x_user_id
+    review_data["user_id"] = current_user.id
     return await review_handler.handle_create_review_for_film(db, film_id, review_data)
 
 
-@router.patch("/reviews/{review_id}", response_model=ReviewResponse, summary="Update a review")
+@router.patch(
+    "/reviews/{review_id}",
+    response_model=ReviewResponse,
+    summary="Update a review (Protected - owner only)",
+)
 async def update_review(
     review_id: UUID,
     payload: ReviewUpdate,
-    x_user_id: Optional[UUID] = Header(None, alias="X-User-ID"),
+    current_user: User = Depends(authenticate_user),
     db: AsyncSession = Depends(get_db),
 ) -> ReviewResponse:
     review_data = payload.model_dump(exclude_unset=True)
-    current_user_id = review_data.get("user_id") or x_user_id
     return await review_handler.handle_update_review(
         db=db,
         review_id=review_id,
         review_data=review_data,
-        current_user_id=current_user_id,
+        current_user_id=current_user.id,
     )
 
 
-@router.delete("/reviews/{review_id}", summary="Delete a review")
+@router.delete(
+    "/reviews/{review_id}",
+    summary="Delete a review (Protected - owner only)",
+)
 async def delete_review(
     review_id: UUID,
+    current_user: User = Depends(authenticate_user),
     db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
-    return await review_handler.handle_delete_review(db, review_id)
+    return await review_handler.handle_delete_review(
+        db=db,
+        review_id=review_id,
+        current_user_id=current_user.id,
+    )
+
+

@@ -6,14 +6,34 @@ from app.exceptions.domain_exceptions import (
     FilmAlreadyExistsError,
     FilmHasActiveReviewsError,
     FilmNotFoundError,
+    InvalidCredentialsError,
+    InvalidRefreshTokenError,
+    InvalidTokenError,
     ReviewAlreadyExistsError,
     ReviewNotFoundError,
     ReviewNotOwnerError,
+    TokenExpiredError,
     UserAlreadyExistsError,
     UserNotFoundError,
 )
 
 logger = logging.getLogger("app.exception_handler")
+
+
+async def unauthorized_exception_handler(
+    request: Request, exc: DomainException
+) -> JSONResponse:
+    logger.warning("Authentication failure: %s", exc.message)
+    return JSONResponse(
+        status_code=401,
+        headers={"WWW-Authenticate": "Bearer"},
+        content={
+            "type": exc.error_type,
+            "message": exc.message,
+            "detail": exc.detail,
+        },
+    )
+
 
 
 async def film_already_exists_handler(
@@ -152,4 +172,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(ReviewNotFoundError, review_not_found_handler)
     app.add_exception_handler(UserNotFoundError, user_not_found_handler)
     app.add_exception_handler(UserAlreadyExistsError, user_already_exists_handler)
+    app.add_exception_handler(InvalidCredentialsError, unauthorized_exception_handler)
+    app.add_exception_handler(InvalidTokenError, unauthorized_exception_handler)
+    app.add_exception_handler(TokenExpiredError, unauthorized_exception_handler)
+    app.add_exception_handler(InvalidRefreshTokenError, unauthorized_exception_handler)
     app.add_exception_handler(DomainException, generic_domain_exception_handler)
+

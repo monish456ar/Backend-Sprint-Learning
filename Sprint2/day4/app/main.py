@@ -7,11 +7,11 @@ from typing import Any, Dict
 from fastapi import FastAPI, Request, Response
 from sqlalchemy import text
 
-from app.config import settings
+from app.config import request_id_ctx, settings, setup_logging
 from app.database.connection import AsyncSessionLocal, engine
 from app.handlers.exception_handlers import register_exception_handlers
-from app.logging_config import request_id_ctx, setup_logging
 from app.routes import auth_routes, film_routes, review_routes
+
 
 # Initialize structured JSON logging
 setup_logging()
@@ -58,10 +58,13 @@ async def request_id_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
         response.headers["X-Request-ID"] = req_id
+        raw_auth = request.headers.get("authorization")
+        auth_preview = (raw_auth[:30] + "...") if raw_auth else "None"
         access_logger.info(
-            f"HTTP {request.method} {request.url.path} -> {response.status_code}"
+            f"HTTP {request.method} {request.url.path} -> {response.status_code} | Authorization: {auth_preview}"
         )
         return response
+
     finally:
         request_id_ctx.reset(token)
 

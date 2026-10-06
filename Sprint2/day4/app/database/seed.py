@@ -151,18 +151,22 @@ async def seed() -> None:
 
     async with AsyncSessionLocal() as session:
         # 1. Seed Users (idempotent: match on username)
+        from app.dependencies.security import hash_password
+
         users_map: Dict[str, User] = {}
         users_added = 0
         for u_data in USERS_DATA:
             stmt = select(User).where(User.username == u_data["username"]).limit(1)
             existing_user = (await session.execute(stmt)).scalars().first()
             if existing_user:
+                if not existing_user.password.startswith("$2"):
+                    existing_user.password = hash_password("password123")
                 users_map[u_data["username"]] = existing_user
             else:
                 user = User(
                     username=u_data["username"],
                     email=u_data["email"],
-                    password=u_data["password"],
+                    password=hash_password("password123"),
                     role=u_data["role"],
                 )
                 session.add(user)
@@ -171,6 +175,7 @@ async def seed() -> None:
                 users_added += 1
 
         logger.info(f"Users: {users_added} new inserted, {len(USERS_DATA) - users_added} already existed.")
+
 
         # 2. Seed Films (idempotent: match on title and release_year)
         films_map: Dict[str, Film] = {}
