@@ -82,8 +82,14 @@ def setup_logging(log_level: int = logging.INFO) -> None:
         root_logger.removeHandler(h)
     root_logger.addHandler(handler)
 
-    # Ensure uvicorn loggers use the structured JSON formatter
-    for logger_name in ("uvicorn", "uvicorn.access", "uvicorn.error", "app"):
+    # Ensure uvicorn and app loggers use the structured JSON formatter
+    for logger_name in ("uvicorn", "uvicorn.error", "app"):
         l = logging.getLogger(logger_name)
         l.handlers = [handler]
         l.propagate = False
+
+    # Mute default uvicorn.access so our request-scoped middleware logs it with request_id
+    uvicorn_access = logging.getLogger("uvicorn.access")
+    uvicorn_access.handlers = []
+    uvicorn_access.propagate = False
+    uvicorn_access.setLevel(logging.WARNING)

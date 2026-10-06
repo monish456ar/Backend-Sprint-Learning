@@ -39,6 +39,9 @@ app = FastAPI(
 )
 
 
+access_logger = logging.getLogger("http_access")
+
+
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     """
@@ -55,6 +58,9 @@ async def request_id_middleware(request: Request, call_next):
     try:
         response = await call_next(request)
         response.headers["X-Request-ID"] = req_id
+        access_logger.info(
+            f"HTTP {request.method} {request.url.path} -> {response.status_code}"
+        )
         return response
     finally:
         request_id_ctx.reset(token)
