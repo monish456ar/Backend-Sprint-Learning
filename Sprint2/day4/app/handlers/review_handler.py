@@ -37,6 +37,7 @@ async def handle_update_review(
     review_id: UUID,
     review_data: Dict[str, Any],
     current_user_id: Optional[UUID] = None,
+    current_user_role: Optional[str] = None,
 ) -> Review:
     """Updates a review. Ownership and not-found exceptions bubble up to centralized handlers."""
     return await ReviewService.modify_review(
@@ -44,6 +45,7 @@ async def handle_update_review(
         review_id=review_id,
         review_data=review_data,
         current_user_id=current_user_id,
+        current_user_role=current_user_role,
     )
 
 
@@ -51,8 +53,14 @@ async def handle_delete_review(
     db: AsyncSession,
     review_id: UUID,
     current_user_id: Optional[UUID] = None,
+    current_user_role: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Deletes a review. Domain exceptions bubble up to centralized handlers."""
-    await ReviewService.remove_review(db, review_id, current_user_id=current_user_id)
+    await ReviewService.remove_review(
+        db,
+        review_id,
+        current_user_id=current_user_id,
+        current_user_role=current_user_role,
+    )
     return {"message": f"Review {review_id} deleted successfully", "review_id": str(review_id)}
 

@@ -1,13 +1,18 @@
 import logging
 from typing import Optional
 from uuid import UUID
-from fastapi import Depends, Header, HTTPException
+from fastapi import Depends, Header
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.dao.user_dao import UserDAO
 from app.dependencies.db_deps import get_db
-from app.exceptions.domain_exceptions import InvalidTokenError, UserNotFoundError
+from app.exceptions.domain_exceptions import (
+    AccessDeniedException,
+    InvalidTokenError,
+    MissingTokenError,
+    UserNotFoundError,
+)
 from app.models.user import User
 from app.dependencies.security import decode_token
 
@@ -20,23 +25,20 @@ oauth2_scheme = OAuth2PasswordBearer(
 )
 
 
-async def authenticate_user(
+async def token_validator(
     token: Optional[str] = Depends(oauth2_scheme),
     authorization: Optional[str] = Header(None, alias="Authorization"),
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    FastAPI authentication dependency.
+    FastAPI token validator & authentication dependency.
     Accepts raw token directly (without 'Bearer') or with 'Bearer <token>'.
     Validates the JWT token and resolves the authenticated User from PostgreSQL.
     """
     raw_token = token or authorization
     if not raw_token:
         logger.warning("Rejected unauthenticated request: missing Authorization header")
-        raise HTTPException(
-            status_code=401,
-            detail="Missing Authorization header. Please pass your token in the Authorization header.",
-        )
+        raise MissingTokenError()
 
     # Clean token: remove 'Bearer ' prefix if present, and trim whitespace/quotes
     clean_token = raw_token.strip()
@@ -75,5 +77,21 @@ async def authenticate_user(
     return user
 
 
-# Backward-compatible alias
-get_current_user = authenticate_user
+def require_role(*allowed_roles: str):
+    """
+    Role-based access control dependency factory.
+    Verifies that the authenticated user has one of the allowed roles.
+    Raises AccessDeniedException if unauthorized.
+    """
+    async def role_checker(user: User = Depends(token_validator)) -> User:
+        if user.role not in allowed_roles:
+            logger.warning(
+                "Access denied for user %s (role='%s'): required role in %s",
+                user.id,
+                user.role,
+                allowed_roles,
+            )
+            raise AccessDeniedException(user.role)
+        return user
+
+    return role_checker

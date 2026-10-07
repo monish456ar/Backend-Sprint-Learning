@@ -2,6 +2,7 @@ import logging
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from app.exceptions.domain_exceptions import (
+    AccessDeniedException,
     DomainException,
     FilmAlreadyExistsError,
     FilmHasActiveReviewsError,
@@ -9,6 +10,7 @@ from app.exceptions.domain_exceptions import (
     InvalidCredentialsError,
     InvalidRefreshTokenError,
     InvalidTokenError,
+    MissingTokenError,
     ReviewAlreadyExistsError,
     ReviewNotFoundError,
     ReviewNotOwnerError,
@@ -162,8 +164,23 @@ async def generic_domain_exception_handler(
     )
 
 
+async def access_denied_handler(
+    request: Request, exc: AccessDeniedException
+) -> JSONResponse:
+    logger.warning("Access denied: %s", exc.message)
+    return JSONResponse(
+        status_code=403,
+        content={
+            "type": "access_denied",
+            "message": exc.message,
+            "role": exc.role,
+        },
+    )
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     """Registers all centralized domain exception handlers with the FastAPI application."""
+    app.add_exception_handler(AccessDeniedException, access_denied_handler)
     app.add_exception_handler(FilmAlreadyExistsError, film_already_exists_handler)
     app.add_exception_handler(ReviewAlreadyExistsError, review_already_exists_handler)
     app.add_exception_handler(FilmHasActiveReviewsError, film_has_active_reviews_handler)
@@ -174,6 +191,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     app.add_exception_handler(UserAlreadyExistsError, user_already_exists_handler)
     app.add_exception_handler(InvalidCredentialsError, unauthorized_exception_handler)
     app.add_exception_handler(InvalidTokenError, unauthorized_exception_handler)
+    app.add_exception_handler(MissingTokenError, unauthorized_exception_handler)
     app.add_exception_handler(TokenExpiredError, unauthorized_exception_handler)
     app.add_exception_handler(InvalidRefreshTokenError, unauthorized_exception_handler)
     app.add_exception_handler(DomainException, generic_domain_exception_handler)

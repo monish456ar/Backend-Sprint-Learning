@@ -1,9 +1,9 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import Settings, settings
 from app.dependencies.authenticate_user import (
-    authenticate_user,
-    get_current_user,
     oauth2_scheme,
+    require_role,
+    token_validator,
 )
 from app.dependencies.config_deps import get_config
 from app.dependencies.db_deps import get_db
@@ -23,8 +23,8 @@ __all__ = [
     "get_config",
     "get_db",
     "get_trace_id",
-    "authenticate_user",
-    "get_current_user",
+    "token_validator",
+    "require_role",
     "oauth2_scheme",
     "hash_password",
     "verify_password",

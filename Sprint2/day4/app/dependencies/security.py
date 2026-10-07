@@ -7,7 +7,7 @@ from app.config import settings
 from app.exceptions.domain_exceptions import InvalidTokenError, TokenExpiredError
 
 # Password hashing context using bcrypt
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["bcrypt"])
 
 
 def hash_password(password: str) -> str:

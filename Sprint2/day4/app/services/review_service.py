@@ -129,12 +129,14 @@ class ReviewService:
         review_id: UUID,
         review_data: Dict[str, Any],
         current_user_id: Optional[UUID] = None,
+        current_user_role: Optional[str] = None,
     ) -> Review:
         """
         Updates review rating and/or review_body.
         Business Rules:
         - Review must exist (raises ReviewNotFoundError if not).
-        - Only the user who created a review can update its rating or body (raises ReviewNotOwnerError).
+        - Admin can update any review.
+        - Critic can only update their own review (raises ReviewNotOwnerError).
         """
         logger.debug("Starting review update for id %s", review_id)
 
@@ -152,8 +154,8 @@ class ReviewService:
         elif isinstance(acting_user_id, str):
             acting_user_id = UUID(acting_user_id)
 
-        # 3. Enforce ownership business rule
-        if acting_user_id and review.user_id != acting_user_id:
+        # 3. Enforce ownership business rule (Admin can edit any review; Critic must own it)
+        if current_user_role != "admin" and acting_user_id and review.user_id != acting_user_id:
             logger.warning(
                 "User %s is not owner of review %s (owner: %s)",
                 acting_user_id,
@@ -179,15 +181,17 @@ class ReviewService:
         db: AsyncSession,
         review_id: UUID,
         current_user_id: Optional[UUID] = None,
+        current_user_role: Optional[str] = None,
     ) -> bool:
-        """Deletes review. Enforces ownership if current_user_id provided. Raises ReviewNotFoundError if review does not exist."""
+        """Deletes review. Enforces ownership for non-admins if current_user_id provided. Raises ReviewNotFoundError if review does not exist."""
         logger.debug("Starting review deletion for id %s", review_id)
         review = await ReviewDAO.get_review_by_id(db, review_id)
         if review is None:
             logger.warning("Review %s not found for deletion", review_id)
             raise ReviewNotFoundError(review_id)
 
-        if current_user_id and review.user_id != current_user_id:
+        # Admin can delete any review; Critic can only delete their own
+        if current_user_role != "admin" and current_user_id and review.user_id != current_user_id:
             logger.warning(
                 "User %s is not owner of review %s (owner: %s)",
                 current_user_id,

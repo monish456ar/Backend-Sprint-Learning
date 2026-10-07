@@ -1,5 +1,15 @@
+from enum import Enum
+from typing import Any
 from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+class UserRole(str, Enum):
+    """Permitted platform user roles."""
+    ADMIN = "admin"
+    CRITIC = "critic"
+    VIEWER = "viewer"
+    USER = "user"
 
 
 class UserBase(BaseModel):
@@ -18,10 +28,28 @@ class UserLogin(BaseModel):
 
 class UserRegister(UserBase):
     """Registration schema inheriting username & email from UserBase, adding password."""
-    model_config = ConfigDict(strict=True, str_strip_whitespace=True)
+    model_config = ConfigDict(str_strip_whitespace=True)
 
     password: str = Field(..., min_length=6, description="User's password", examples=["secret123"])
-    role: str = Field(default="user", description="User's platform role", examples=["user"])
+    role: UserRole = Field(
+        default=UserRole.VIEWER,
+        description="User's platform role: admin, critic, viewer, or user",
+        examples=[UserRole.VIEWER],
+    )
+
+    @field_validator("role", mode="before")
+    @classmethod
+    def validate_role(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            allowed = [r.value for r in UserRole]
+            normalized = value.strip().lower()
+            if normalized not in allowed:
+                raise ValueError(
+                    f"Invalid role '{value}'. Allowed roles are: {', '.join(allowed)}."
+                )
+            return UserRole(normalized)
+        return value
+
 
 
 class UserResponse(UserBase):

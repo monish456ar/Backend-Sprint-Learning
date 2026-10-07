@@ -125,3 +125,17 @@ async def get_platform_admin_stats(db: AsyncSession) -> Dict[str, Any]:
     """Calculates administrative stats via UserDAO."""
     return await UserDAO.get_admin_stats(db)
 
+
+async def delete_user(db: AsyncSession, user_id: UUID) -> bool:
+    """Deletes user by ID. Raises UserNotFoundError if user does not exist."""
+    user = await UserDAO.get_user_by_id(db, user_id)
+    if not user:
+        raise UserNotFoundError(str(user_id))
+
+    deleted = await UserDAO.delete_user(db, user_id)
+    if not deleted:
+        raise UserNotFoundError(str(user_id))
+
+    logger.info("Admin deleted user %s (id=%s)", user.username, user_id)
+    return True
+

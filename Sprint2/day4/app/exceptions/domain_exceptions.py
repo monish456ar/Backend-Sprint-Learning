@@ -178,3 +178,23 @@ class InvalidRefreshTokenError(DomainException):
             error_type="InvalidRefreshToken",
         )
 
+
+class MissingTokenError(DomainException):
+    """Raised when an Authorization header or token is missing from a protected request."""
+
+    def __init__(self, detail: Optional[str] = None) -> None:
+        super().__init__(
+            message="Missing authorization token.",
+            detail=detail or "Missing Authorization header. Please pass your token in the Authorization header.",
+            error_type="MissingToken",
+        )
+
+
+class AccessDeniedException(Exception):
+    """Raised when an authenticated user does not have the required role for an operation."""
+
+    def __init__(self, role: str):
+        self.role = role
+        self.message = f"Access denied. Your role '{role}' is not allowed."
+        super().__init__(self.message)
+

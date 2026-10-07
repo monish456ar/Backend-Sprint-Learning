@@ -109,10 +109,24 @@ class UserDAO:
         film_count = await db.scalar(select(func.count(Film.id))) or 0
         review_count = await db.scalar(select(func.count(Review.id))) or 0
 
+        avg_rating_result = await db.scalar(select(func.avg(Review.rating)))
+        overall_average_rating = round(float(avg_rating_result), 2) if avg_rating_result is not None else 0.0
+
+        top_reviewer_stmt = (
+            select(User.username)
+            .join(Review, User.id == Review.user_id)
+            .group_by(User.id, User.username)
+            .order_by(func.count(Review.id).desc())
+            .limit(1)
+        )
+        top_reviewer = await db.scalar(top_reviewer_stmt)
+
         return {
-            "total_users": user_count,
             "total_films": film_count,
             "total_reviews": review_count,
+            "total_users": user_count,
+            "overall_average_rating": overall_average_rating,
+            "top_reviewer": top_reviewer or "None",
             "source": "postgresql",
         }
 
