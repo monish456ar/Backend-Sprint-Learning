@@ -30,6 +30,10 @@ async def handle_get_me(current_user: User) -> User:
     return current_user
 
 
+async def handle_logout(current_user: User) -> Dict[str, Any]:
+    """Handles user logout by revoking their refresh token in Redis."""
+    return await auth_service.logout_user(current_user.id)
+
 
 async def handle_get_user_by_email(db: AsyncSession, email: str) -> User:
     """Retrieves user by email address."""

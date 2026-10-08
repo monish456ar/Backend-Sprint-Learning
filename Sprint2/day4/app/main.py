@@ -9,6 +9,7 @@ from sqlalchemy import text
 
 from app.config import request_id_ctx, settings, setup_logging
 from app.database.connection import AsyncSessionLocal, engine
+from app.database.redis_client import close_redis, init_redis, redis_client
 from app.handlers.exception_handlers import register_exception_handlers
 from app.routes import auth_routes, film_routes, review_routes
 
@@ -24,11 +25,17 @@ async def lifespan(app: FastAPI):
     logger.info(f"==> [STARTUP] Loaded configuration: api_version={settings.api_version}")
     logger.info("==> [STARTUP] Schema managed via Alembic migrations")
 
+    try:
+        await init_redis()
+    except Exception as e:
+        logger.warning("==> [STARTUP] Redis connection check deferred or failed: %s", str(e))
+
     yield
 
     logger.info("==> [SHUTDOWN] Film Review Platform API Day4 shutting down")
+    await close_redis()
     await engine.dispose()
-    logger.info("==> [SHUTDOWN] Database engine connection pool disposed")
+    logger.info("==> [SHUTDOWN] Database engine connection pool and Redis disposed")
 
 
 app = FastAPI(
@@ -82,9 +89,16 @@ async def health_check(response: Response) -> Dict[str, Any]:
     except Exception as e:
         db_status = f"disconnected ({e})"
 
+    redis_status = "connected"
+    try:
+        await redis_client.ping()
+    except Exception as e:
+        redis_status = f"disconnected ({e})"
+
     return {
         "status": "ok",
         "database": db_status,
+        "redis": redis_status,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -93,3 +107,8 @@ async def health_check(response: Response) -> Dict[str, Any]:
 app.include_router(film_routes.router, prefix="/api/v1")
 app.include_router(review_routes.router, prefix="/api/v1")
 app.include_router(auth_routes.router, prefix="/api/v1")
+
+# Also include routes without prefix so /films, /logout, etc. are accessible directly
+app.include_router(film_routes.router, include_in_schema=False)
+app.include_router(auth_routes.router, include_in_schema=False)
+

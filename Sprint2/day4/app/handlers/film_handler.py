@@ -11,7 +11,7 @@ async def handle_get_all_films(
     release_year: Optional[int] = None,
     start_year: Optional[int] = None,
     end_year: Optional[int] = None,
-) -> List[Film]:
+) -> List[Any]:
     """Handles listing films with optional query filters."""
     return await FilmService.list_films(
         db=db,
@@ -36,7 +36,7 @@ async def handle_create_film(
 
 async def handle_filter_films(
     db: AsyncSession, filter_data: Dict[str, Any]
-) -> List[Film]:
+) -> List[Any]:
     """Handles filtering films by year range."""
     start_year = filter_data.get("start_year", 0)
     end_year = filter_data.get("end_year", 9999)

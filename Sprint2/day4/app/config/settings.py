@@ -10,6 +10,10 @@ class Settings(BaseSettings):
     allowed_cors_origins: str = "http://localhost:3000"
     api_version: str = "v1"
 
+    # Redis Configuration & TTL
+    redis_url: str = "redis://localhost:6379/0"
+    film_cache_ttl_seconds: int = 60
+
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
 

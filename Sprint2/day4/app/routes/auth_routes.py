@@ -63,6 +63,17 @@ async def refresh_token(
     return await auth_handler.handle_refresh(db, payload.refresh_token)
 
 
+@router.post(
+    "/auth/logout",
+    summary="Logout user and invalidate refresh token in Redis",
+    status_code=status.HTTP_200_OK,
+)
+async def logout_user(
+    current_user: User = Depends(token_validator),
+) -> Dict[str, Any]:
+    return await auth_handler.handle_logout(current_user)
+
+
 @router.get(
     "/me",
     response_model=UserResponse,

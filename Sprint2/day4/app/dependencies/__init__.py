@@ -14,6 +14,7 @@ from app.dependencies.security import (
     hash_password,
     verify_password,
 )
+from app.dependencies.redis_deps import get_redis
 from app.dependencies.trace_deps import get_trace_id
 
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "AsyncSession",
     "get_config",
     "get_db",
+    "get_redis",
     "get_trace_id",
     "token_validator",
     "require_role",
