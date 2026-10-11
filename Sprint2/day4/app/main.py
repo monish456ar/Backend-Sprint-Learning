@@ -11,7 +11,7 @@ from app.config import request_id_ctx, settings, setup_logging
 from app.database.connection import AsyncSessionLocal, engine
 from app.database.redis_client import close_redis, init_redis, redis_client
 from app.handlers.exception_handlers import register_exception_handlers
-from app.routes import auth_routes, film_routes, review_routes
+from app.routes import auth_routes, film_routes, review_routes, ui_routes
 
 
 # Initialize structured JSON logging
@@ -107,6 +107,9 @@ async def health_check(response: Response) -> Dict[str, Any]:
 app.include_router(film_routes.router, prefix="/api/v1")
 app.include_router(review_routes.router, prefix="/api/v1")
 app.include_router(auth_routes.router, prefix="/api/v1")
+
+# Register server-rendered HTML UI router under /ui prefix
+app.include_router(ui_routes.router, prefix="/ui")
 
 # Also include routes without prefix so /films, /logout, etc. are accessible directly
 app.include_router(film_routes.router, include_in_schema=False)

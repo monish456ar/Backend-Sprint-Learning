@@ -1,0 +1,29 @@
+{% if films and films|length > 0 %}
+<div class="film-grid">
+    {% for film in films %}
+    <div class="film-card">
+        <div class="film-header">
+            <h3 class="film-title">{{ film.title }}</h3>
+            <span class="film-year">{{ film.release_year }}</span>
+        </div>
+        <div class="film-meta">
+            <span class="film-genre">{{ film.genre }}</span>
+            <div class="film-rating">
+                <span class="star-icon">★</span>
+                <span class="rating-value">
+                    {% if film.average_rating is not none and film.average_rating != "N/A" %}
+                        {{ film.average_rating }} / 10.0
+                    {% else %}
+                        No reviews yet
+                    {% endif %}
+                </span>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+    <p>No films found matching your search.</p>
+</div>
+{% endif %}

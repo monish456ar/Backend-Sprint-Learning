@@ -31,8 +31,3 @@ async def close_redis() -> None:
         logger.info("==> [SHUTDOWN] Redis connection closed successfully")
     except Exception as e:
         logger.warning("==> [SHUTDOWN] Error closing Redis connection: %s", str(e))
-
-
-def get_redis_client() -> aioredis.Redis:
-    """Returns the shared Redis client singleton."""
-    return redis_client

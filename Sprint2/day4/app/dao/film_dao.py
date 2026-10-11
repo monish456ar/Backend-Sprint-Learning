@@ -103,3 +103,14 @@ class FilmDAO:
         result = await db.execute(stmt)
         await db.commit()
         return bool(result.rowcount and result.rowcount > 0)
+
+    @staticmethod
+    async def search_films(db: AsyncSession, search_term: Optional[str] = None) -> List[Film]:
+        """READ: Searches active films matching search_term in title or genre."""
+        stmt = select(Film).where(Film.is_deleted == False)  
+        if search_term and search_term.strip():
+            pattern = f"%{search_term.strip()}%"
+            stmt = stmt.where(Film.title.ilike(pattern) | Film.genre.ilike(pattern))
+        stmt = stmt.order_by(Film.title)
+        result = await db.execute(stmt)
+        return list(result.scalars().all())
