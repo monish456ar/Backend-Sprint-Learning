@@ -88,7 +88,8 @@ async def get_current_user_profile(
 @router.get(
     "/users/by-email",
     response_model=UserResponse,
-    summary="Find user by email",
+    summary="Find user by email (Admin only)",
+    dependencies=[Depends(require_role("admin"))],
 )
 async def get_user_by_email(
     email: str,
