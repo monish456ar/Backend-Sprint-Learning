@@ -24,16 +24,18 @@ class FilmService:
     def _build_list_cache_key(
         cls,
         genre: Optional[str] = None,
-        release_year: Optional[int] = None,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 10,
     ) -> str:
-        """Constructs a deterministic Redis cache key for film list queries."""
+        """Constructs a deterministic Redis cache key for film list queries with pagination and filters."""
         genre_part = (genre or "").strip().lower() or "*"
-        rel_part = str(release_year) if release_year is not None else "*"
-        start_part = str(start_year) if start_year is not None else "*"
-        end_part = str(end_year) if end_year is not None else "*"
-        return f"films:list:genre={genre_part}:year={rel_part}:start={start_part}:end={end_part}"
+        from_part = str(from_year) if from_year is not None else "*"
+        to_part = str(to_year) if to_year is not None else "*"
+        dir_part = (director or "").strip().lower() or "*"
+        return f"films:list:genre={genre_part}:from={from_part}:to={to_part}:dir={dir_part}:p={page}:s={page_size}"
 
     @classmethod
     async def invalidate_film_cache(cls) -> None:
@@ -52,25 +54,29 @@ class FilmService:
             logger.warning("Failed to invalidate film cache from Redis: %s", str(e))
 
     @classmethod
-    async def list_films(
+    async def list_films_paginated(
         cls,
         db: AsyncSession,
         genre: Optional[str] = None,
-        release_year: Optional[int] = None,
-        start_year: Optional[int] = None,
-        end_year: Optional[int] = None,
-    ) -> List[Dict[str, Any]]:
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> Dict[str, Any]:
         """
-        Read-through caching layer for listing films:
-        1. Check Redis for cached serialized results.
-        2. If HIT: return cached results directly without querying the database.
-        3. If MISS: fetch from PostgreSQL, serialize, store in Redis with TTL, and return.
+        Offset-paginated film query with read-through Redis caching:
+        1. Checks Redis cache.
+        2. On cache miss, fetches paginated items and total count from PostgreSQL.
+        3. Caches serialized envelope in Redis with defined TTL.
         """
         cache_key = cls._build_list_cache_key(
             genre=genre,
-            release_year=release_year,
-            start_year=start_year,
-            end_year=end_year,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+            page=page,
+            page_size=page_size,
         )
 
         try:
@@ -82,12 +88,14 @@ class FilmService:
             logger.warning("Redis cache read error for '%s': %s", cache_key, str(e))
 
         logger.info("Redis cache MISS for '%s'. Querying database...", cache_key)
-        films = await FilmDAO.list_films(
+        films, total = await FilmDAO.list_films_paginated(
             db=db,
             genre=genre,
-            release_year=release_year,
-            start_year=start_year,
-            end_year=end_year,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+            page=page,
+            page_size=page_size,
         )
 
         serialized_films = [
@@ -103,22 +111,89 @@ class FilmService:
             for film in films
         ]
 
+        result_payload = {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": serialized_films,
+        }
+
         try:
             await redis_client.set(
                 cache_key,
-                json.dumps(serialized_films),
+                json.dumps(result_payload),
                 ex=settings.film_cache_ttl_seconds,
             )
-            logger.info(
-                "Stored %d film(s) in Redis cache under '%s' with TTL %ds",
-                len(serialized_films),
-                cache_key,
-                settings.film_cache_ttl_seconds,
-            )
+            logger.info("Stored paginated film results in Redis under '%s' (TTL: %ds)", cache_key, settings.film_cache_ttl_seconds)
         except Exception as e:
             logger.warning("Redis cache write error for '%s': %s", cache_key, str(e))
 
-        return serialized_films
+        return result_payload
+
+    @classmethod
+    async def list_films_cursor(
+        cls,
+        db: AsyncSession,
+        cursor: Optional[str] = None,
+        limit: int = 10,
+        genre: Optional[str] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Cursor-based paginated film query returning items and an opaque next_cursor."""
+        films, next_cursor = await FilmDAO.list_films_cursor(
+            db=db,
+            cursor=cursor,
+            limit=limit,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
+        serialized_films = [
+            {
+                "id": str(film.id),
+                "title": film.title,
+                "release_year": film.release_year,
+                "genre": film.genre,
+                "director": film.director,
+                "hero": film.hero,
+                "is_deleted": film.is_deleted,
+            }
+            for film in films
+        ]
+        return {
+            "items": serialized_films,
+            "next_cursor": next_cursor,
+        }
+
+    @classmethod
+    async def list_films(
+        cls,
+        db: AsyncSession,
+        genre: Optional[str] = None,
+        release_year: Optional[int] = None,
+        start_year: Optional[int] = None,
+        end_year: Optional[int] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+    ) -> List[Dict[str, Any]]:
+        """Backward-compatible film list without pagination envelope."""
+        eff_from = from_year if from_year is not None else (release_year or start_year)
+        eff_to = to_year if to_year is not None else (release_year or end_year)
+        res = await cls.list_films_paginated(
+            db=db,
+            genre=genre,
+            from_year=eff_from,
+            to_year=eff_to,
+            director=director,
+            page=1,
+            page_size=1000,
+        )
+        return res["items"]
+
 
     @classmethod
     async def retrieve_film(cls, db: AsyncSession, film_id: UUID) -> Film:
@@ -239,6 +314,8 @@ class FilmService:
 
 # Backward-compatible function aliases
 list_films = FilmService.list_films
+list_films_paginated = FilmService.list_films_paginated
+list_films_cursor = FilmService.list_films_cursor
 retrieve_film = FilmService.retrieve_film
 add_film = FilmService.add_film
 filter_films = FilmService.filter_films
@@ -246,3 +323,4 @@ modify_film = FilmService.modify_film
 soft_remove_film = FilmService.soft_remove_film
 remove_film = FilmService.remove_film
 invalidate_film_cache = FilmService.invalidate_film_cache
+

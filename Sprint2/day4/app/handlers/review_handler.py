@@ -5,11 +5,31 @@ from app.models.review import Review
 from app.services.review_service import ReviewService
 
 
+async def handle_get_reviews_for_film_paginated(
+    db: AsyncSession,
+    film_id: UUID,
+    page: int = 1,
+    page_size: int = 10,
+    min_rating: Optional[int] = None,
+    max_rating: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Retrieves paginated reviews for a film. Domain exceptions bubble up to centralized handlers."""
+    return await ReviewService.list_reviews_for_film_paginated(
+        db=db,
+        film_id=film_id,
+        page=page,
+        page_size=page_size,
+        min_rating=min_rating,
+        max_rating=max_rating,
+    )
+
+
 async def handle_get_reviews_for_film(
     db: AsyncSession, film_id: UUID
 ) -> List[Review]:
     """Retrieves all reviews for a film. Domain exceptions bubble up to centralized handlers."""
     return await ReviewService.list_reviews_for_film(db, film_id)
+
 
 
 async def handle_get_film_average_rating(

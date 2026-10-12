@@ -1,6 +1,6 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import (
     get_config,
@@ -10,6 +10,7 @@ from app.dependencies import (
 )
 from app.handlers import review_handler
 from app.models.user import User
+from app.schemas.pagination_schemas import PaginatedResponse
 from app.schemas.review_schemas import ReviewCreate, ReviewResponse, ReviewUpdate
 
 router = APIRouter(tags=["Reviews"])
@@ -17,15 +18,31 @@ router = APIRouter(tags=["Reviews"])
 
 @router.get(
     "/films/{film_id}/reviews",
-    response_model=List[ReviewResponse],
-    summary="Get all reviews for a film (Public)",
+    response_model=PaginatedResponse[ReviewResponse],
+    summary="Get paginated reviews for a film (Public)",
 )
 async def get_film_reviews(
     film_id: UUID,
+    page: int = Query(1, ge=1, description="Current page number (1-indexed)"),
+    page_size: int = Query(10, ge=1, le=100, description="Records requested per page"),
+    min_rating: Optional[int] = Query(None, ge=1, le=10, description="Filter rating >= min_rating"),
+    max_rating: Optional[int] = Query(None, ge=1, le=10, description="Filter rating <= max_rating"),
     db: AsyncSession = Depends(get_db),
     config: Settings = Depends(get_config),
-) -> List[ReviewResponse]:
-    return await review_handler.handle_get_reviews_for_film(db, film_id)
+) -> PaginatedResponse[ReviewResponse]:
+    """Retrieves paginated reviews for a specific film with eager loading of reviewer."""
+    if min_rating is not None and max_rating is not None and min_rating > max_rating:
+        raise ValueError("min_rating must be less than or equal to max_rating")
+
+    return await review_handler.handle_get_reviews_for_film_paginated(
+        db=db,
+        film_id=film_id,
+        page=page,
+        page_size=page_size,
+        min_rating=min_rating,
+        max_rating=max_rating,
+    )
+
 
 
 @router.get(

@@ -2,21 +2,40 @@
 <div class="film-grid">
     {% for film in films %}
     <div class="film-card">
-        <div class="film-header">
-            <h3 class="film-title">{{ film.title }}</h3>
-            <span class="film-year">{{ film.release_year }}</span>
+        <div class="film-top">
+            <div class="film-header">
+                <h3 class="film-title">{{ film.title }}</h3>
+                <span class="film-year">{{ film.release_year }}</span>
+            </div>
+
+            {% if film.director or film.hero %}
+            <div class="film-people">
+                {% if film.director %}
+                <div class="film-people-row">
+                    <span class="film-people-label">Dir:</span>
+                    <span class="film-people-val">{{ film.director }}</span>
+                </div>
+                {% endif %}
+                {% if film.hero %}
+                <div class="film-people-row">
+                    <span class="film-people-label">Star:</span>
+                    <span class="film-people-val">{{ film.hero }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
         </div>
+
         <div class="film-meta">
             <span class="film-genre">{{ film.genre }}</span>
             <div class="film-rating">
                 <span class="star-icon">★</span>
-                <span class="rating-value">
-                    {% if film.average_rating is not none and film.average_rating != "N/A" %}
-                        {{ film.average_rating }} / 10.0
-                    {% else %}
-                        No reviews yet
-                    {% endif %}
-                </span>
+                {% if film.average_rating is not none and film.average_rating != "N/A" %}
+                    <span class="rating-num">{{ "%.1f"|format(film.average_rating) if film.average_rating is number else film.average_rating }}</span>
+                    <span style="color: var(--text-muted); font-size: 0.72rem;">/10</span>
+                {% else %}
+                    <span class="rating-na">Unrated</span>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -24,6 +43,24 @@
 </div>
 {% else %}
 <div class="empty-state">
-    <p>No films found matching your search.</p>
+    <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+        <line x1="7" y1="2" x2="7" y2="22"></line>
+        <line x1="17" y1="2" x2="17" y2="22"></line>
+        <line x1="2" y1="12" x2="22" y2="12"></line>
+        <line x1="2" y1="7" x2="7" y2="7"></line>
+        <line x1="2" y1="17" x2="7" y2="17"></line>
+        <line x1="17" y1="17" x2="22" y2="17"></line>
+        <line x1="17" y1="7" x2="22" y2="7"></line>
+    </svg>
+    <h3 class="empty-title">No films found</h3>
+    <p class="empty-desc">
+        {% if query %}
+            No titles or genres matching <strong style="color: var(--text-primary); font-weight: 600;">"{{ query }}"</strong>. Try searching for a different keyword or director.
+        {% else %}
+            No movies in the catalog yet.
+        {% endif %}
+    </p>
 </div>
 {% endif %}
+

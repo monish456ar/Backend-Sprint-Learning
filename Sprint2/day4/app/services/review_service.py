@@ -21,6 +21,39 @@ class ReviewService:
     """Service layer managing review domain logic, business rules, and DAO orchestration."""
 
     @classmethod
+    async def list_reviews_for_film_paginated(
+        cls,
+        db: AsyncSession,
+        film_id: UUID,
+        page: int = 1,
+        page_size: int = 10,
+        min_rating: Optional[int] = None,
+        max_rating: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """Lists reviews for a film with database offset pagination and optional rating filtering."""
+        logger.debug("Listing paginated reviews for film %s (page=%d, size=%d)", film_id, page, page_size)
+        film = await FilmDAO.get_film_by_id(db, film_id)
+        if film is None:
+            logger.warning("Film %s not found", film_id)
+            raise FilmNotFoundError(film_id)
+
+        reviews, total = await ReviewDAO.get_reviews_for_film_paginated(
+            db=db,
+            film_id=film_id,
+            page=page,
+            page_size=page_size,
+            min_rating=min_rating,
+            max_rating=max_rating,
+        )
+        logger.info("Found %d review(s) (total: %d) for film %s", len(reviews), total, film_id)
+        return {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "items": reviews,
+        }
+
+    @classmethod
     async def list_reviews_for_film(
         cls, db: AsyncSession, film_id: UUID
     ) -> List[Review]:
@@ -33,6 +66,7 @@ class ReviewService:
         reviews = await ReviewDAO.get_reviews_for_film(db, film_id)
         logger.info("Found %d review(s) for film %s", len(reviews), film_id)
         return reviews
+
 
     @classmethod
     async def get_film_average_rating(
@@ -212,7 +246,9 @@ class ReviewService:
 
 # Backward-compatible function aliases
 list_reviews_for_film = ReviewService.list_reviews_for_film
+list_reviews_for_film_paginated = ReviewService.list_reviews_for_film_paginated
 get_film_average_rating = ReviewService.get_film_average_rating
 add_review_for_film = ReviewService.add_review_for_film
 modify_review = ReviewService.modify_review
 remove_review = ReviewService.remove_review
+

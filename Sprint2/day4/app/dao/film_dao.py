@@ -1,8 +1,27 @@
-from typing import Any, Dict, List, Optional
+import base64
+import json
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
-from sqlalchemy import delete, func, insert, select, update
+from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.film import Film
+
+
+def encode_film_cursor(created_at: datetime, film_id: UUID) -> str:
+    """Encodes created_at and film_id into an opaque URL-safe base64 string."""
+    payload = json.dumps({"ts": created_at.isoformat(), "id": str(film_id)})
+    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
+
+
+def decode_film_cursor(cursor_str: str) -> Tuple[datetime, UUID]:
+    """Decodes an opaque base64 string back to (created_at, film_id)."""
+    try:
+        raw = base64.urlsafe_b64decode(cursor_str.encode("utf-8")).decode("utf-8")
+        data = json.loads(raw)
+        return datetime.fromisoformat(data["ts"]), UUID(data["id"])
+    except Exception as exc:
+        raise ValueError(f"Invalid cursor token: {exc}") from exc
 
 
 class FilmDAO:
@@ -32,26 +51,141 @@ class FilmDAO:
         return result.scalars().first()
 
     @staticmethod
+    def _apply_film_filters(
+        stmt,
+        genre: Optional[str] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+    ):
+        """Applies independent, combinable multi-field filters to a Film select statement."""
+        if genre and genre.strip():
+            # Exact genre match (case-insensitive)
+            stmt = stmt.where(func.lower(Film.genre) == genre.strip().lower())
+        if from_year is not None:
+            stmt = stmt.where(Film.release_year >= from_year)
+        if to_year is not None:
+            stmt = stmt.where(Film.release_year <= to_year)
+        if director and director.strip():
+            # Case-insensitive substring match
+            stmt = stmt.where(Film.director.ilike(f"%{director.strip()}%"))
+        return stmt
+
+    @classmethod
+    async def list_films_paginated(
+        cls,
+        db: AsyncSession,
+        genre: Optional[str] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+        page: int = 1,
+        page_size: int = 10,
+    ) -> Tuple[List[Film], int]:
+        """
+        READ: Retrieves an offset-paginated page of films with database filtering and counting.
+        """
+        # 1. Total matching count query in database
+        count_stmt = select(func.count(Film.id)).where(Film.is_deleted == False)
+        count_stmt = cls._apply_film_filters(
+            count_stmt,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
+        total_res = await db.execute(count_stmt)
+        total: int = total_res.scalar_one() or 0
+
+        # 2. Paginated rows query with stable ordering
+        data_stmt = select(Film).where(Film.is_deleted == False)
+        data_stmt = cls._apply_film_filters(
+            data_stmt,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
+        offset = max(0, (page - 1) * page_size)
+        data_stmt = data_stmt.order_by(Film.created_at.desc(), Film.id.desc()).offset(offset).limit(page_size)
+
+        result = await db.execute(data_stmt)
+        films = list(result.scalars().all())
+        return films, total
+
+    @classmethod
+    async def list_films_cursor(
+        cls,
+        db: AsyncSession,
+        cursor: Optional[str] = None,
+        limit: int = 10,
+        genre: Optional[str] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
+    ) -> Tuple[List[Film], Optional[str]]:
+        """
+        READ: Cursor-based pagination on films.
+        Fetches limit + 1 rows to determine if next batch exists.
+        """
+        stmt = select(Film).where(Film.is_deleted == False)
+        stmt = cls._apply_film_filters(
+            stmt,
+            genre=genre,
+            from_year=from_year,
+            to_year=to_year,
+            director=director,
+        )
+
+        if cursor:
+            cursor_dt, cursor_id = decode_film_cursor(cursor)
+            stmt = stmt.where(
+                or_(
+                    Film.created_at < cursor_dt,
+                    and_(Film.created_at == cursor_dt, Film.id < cursor_id),
+                )
+            )
+
+        stmt = stmt.order_by(Film.created_at.desc(), Film.id.desc()).limit(limit + 1)
+        result = await db.execute(stmt)
+        records = list(result.scalars().all())
+
+        has_next = len(records) > limit
+        items = records[:limit]
+
+        next_cursor: Optional[str] = None
+        if has_next and items:
+            last_item = items[-1]
+            next_cursor = encode_film_cursor(last_item.created_at, last_item.id)
+
+        return items, next_cursor
+
+    @classmethod
     async def list_films(
+        cls,
         db: AsyncSession,
         genre: Optional[str] = None,
         release_year: Optional[int] = None,
         start_year: Optional[int] = None,
         end_year: Optional[int] = None,
+        from_year: Optional[int] = None,
+        to_year: Optional[int] = None,
+        director: Optional[str] = None,
     ) -> List[Film]:
-        """READ: Lists films with optional filtering using explicit select()."""
-        stmt = select(Film).order_by(Film.id)
-        if genre:
-            stmt = stmt.where(Film.genre.ilike(f"%{genre}%"))
-        if release_year is not None:
-            stmt = stmt.where(Film.release_year == release_year)
-        if start_year is not None:
-            stmt = stmt.where(Film.release_year >= start_year)
-        if end_year is not None:
-            stmt = stmt.where(Film.release_year <= end_year)
+        """READ: Backward-compatible film list without pagination envelope."""
+        eff_from = from_year if from_year is not None else (release_year or start_year)
+        eff_to = to_year if to_year is not None else (release_year or end_year)
+        films, _ = await cls.list_films_paginated(
+            db=db,
+            genre=genre,
+            from_year=eff_from,
+            to_year=eff_to,
+            director=director,
+            page=1,
+            page_size=1000,
+        )
+        return films
 
-        result = await db.execute(stmt)
-        return list(result.scalars().all())
 
     @staticmethod
     async def create_film(db: AsyncSession, film_data: Dict[str, Any]) -> Film:

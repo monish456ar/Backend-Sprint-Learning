@@ -6,6 +6,7 @@ from app.config import settings
 logger = logging.getLogger("app.redis")
 
 # Shared Redis Client configured from centralized settings.
+
 # Uses an internal connection pool and reuses connections across all requests.
 redis_client: aioredis.Redis = aioredis.from_url(
     settings.redis_url,

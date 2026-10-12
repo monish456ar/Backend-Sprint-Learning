@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,28 +15,79 @@ from app.schemas.film_schemas import (
     FilmResponse,
     FilmUpdate,
 )
+from app.schemas.pagination_schemas import (
+    CursorPaginatedResponse,
+    FilmFilterParams,
+    PaginatedResponse,
+)
 
 router = APIRouter(prefix="/films", tags=["Films"])
 
 
 @router.get(
-    "", response_model=List[FilmResponse], summary="Get all films with optional filters"
+    "/cursor",
+    response_model=CursorPaginatedResponse[FilmResponse],
+    summary="Get films using cursor-based pagination",
+)
+async def get_films_cursor(
+    filters: FilmFilterParams = Depends(),
+    cursor: Optional[str] = Query(None, description="Opaque cursor token representing the next batch position"),
+    limit: int = Query(10, ge=1, le=100, description="Number of items to fetch"),
+    db: AsyncSession = Depends(get_db),
+) -> CursorPaginatedResponse[FilmResponse]:
+    """Dedicated cursor-based pagination endpoint with multi-field filtering."""
+    return await film_handler.handle_get_all_films_cursor(
+        db=db,
+        cursor=cursor,
+        limit=limit,
+        genre=filters.genre,
+        from_year=filters.from_year,
+        to_year=filters.to_year,
+        director=filters.director,
+    )
+
+
+@router.get(
+    "",
+    response_model=Union[PaginatedResponse[FilmResponse], CursorPaginatedResponse[FilmResponse]],
+    summary="Get films with offset pagination (default) or cursor pagination",
 )
 async def get_all_films(
-    genre: Optional[str] = Query(None, description="Filter by genre"),
-    release_year: Optional[int] = Query(None, description="Filter by exact release year"),
-    start_year: Optional[int] = Query(None, description="Filter by minimum release year"),
-    end_year: Optional[int] = Query(None, description="Filter by maximum release year"),
+    filters: FilmFilterParams = Depends(),
+    page: int = Query(1, ge=1, description="Current page number (1-indexed)"),
+    page_size: int = Query(10, ge=1, le=100, description="Records requested per page"),
+    cursor: Optional[str] = Query(None, description="Optional cursor for cursor-based pagination mode"),
+    limit: Optional[int] = Query(None, ge=1, le=100, description="Batch limit if using cursor mode"),
     db: AsyncSession = Depends(get_db),
     config=Depends(get_config),
     trace_id=Depends(get_trace_id),
-) -> List[FilmResponse]:
-    return await film_handler.handle_get_all_films(
+) -> Any:
+    """
+    Retrieves films using either offset-based pagination (default) or cursor-based pagination.
+    Supports multi-field filtering:
+    - genre: Exact match (case-insensitive)
+    - from_year / to_year: Release year range
+    - director: Case-insensitive substring search
+    """
+    if cursor is not None:
+        return await film_handler.handle_get_all_films_cursor(
+            db=db,
+            cursor=cursor,
+            limit=limit or page_size,
+            genre=filters.genre,
+            from_year=filters.from_year,
+            to_year=filters.to_year,
+            director=filters.director,
+        )
+
+    return await film_handler.handle_get_all_films_paginated(
         db=db,
-        genre=genre,
-        release_year=release_year,
-        start_year=start_year,
-        end_year=end_year,
+        genre=filters.genre,
+        from_year=filters.from_year,
+        to_year=filters.to_year,
+        director=filters.director,
+        page=page,
+        page_size=page_size,
     )
 
 

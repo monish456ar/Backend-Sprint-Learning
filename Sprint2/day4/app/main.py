@@ -67,8 +67,9 @@ async def request_id_middleware(request: Request, call_next):
         response.headers["X-Request-ID"] = req_id
         raw_auth = request.headers.get("authorization")
         auth_preview = (raw_auth[:30] + "...") if raw_auth else "None"
+        full_path = f"{request.url.path}?{request.url.query}" if request.url.query else request.url.path
         access_logger.info(
-            f"HTTP {request.method} {request.url.path} -> {response.status_code} | Authorization: {auth_preview}"
+            f"HTTP {request.method} {full_path} -> {response.status_code} | Authorization: {auth_preview}"
         )
         return response
 
@@ -111,7 +112,8 @@ app.include_router(auth_routes.router, prefix="/api/v1")
 # Register server-rendered HTML UI router under /ui prefix
 app.include_router(ui_routes.router, prefix="/ui")
 
-# Also include routes without prefix so /films, /logout, etc. are accessible directly
+# Also include routes without prefix so /films, /reviews, /logout, etc. are accessible directly
 app.include_router(film_routes.router, include_in_schema=False)
+app.include_router(review_routes.router, include_in_schema=False)
 app.include_router(auth_routes.router, include_in_schema=False)
 
