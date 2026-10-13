@@ -1,5 +1,7 @@
+import base64
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+import json
+from typing import Any, Dict, Optional, Tuple
 from uuid import UUID
 from jose import ExpiredSignatureError, JWTError, jwt
 from passlib.context import CryptContext
@@ -83,3 +85,19 @@ def decode_token(token: str) -> Dict[str, Any]:
         raise TokenExpiredError() from e
     except JWTError as e:
         raise InvalidTokenError() from e
+
+
+def encode_film_cursor(created_at: datetime, film_id: UUID) -> str:
+    """Encodes created_at and film_id into an opaque URL-safe base64 string."""
+    payload = json.dumps({"ts": created_at.isoformat(), "id": str(film_id)})
+    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
+
+
+def decode_film_cursor(cursor_str: str) -> Tuple[datetime, UUID]:
+    """Decodes an opaque base64 string back to (created_at, film_id)."""
+    try:
+        raw = base64.urlsafe_b64decode(cursor_str.encode("utf-8")).decode("utf-8")
+        data = json.loads(raw)
+        return datetime.fromisoformat(data["ts"]), UUID(data["id"])
+    except Exception as exc:
+        raise ValueError(f"Invalid cursor token: {exc}") from exc

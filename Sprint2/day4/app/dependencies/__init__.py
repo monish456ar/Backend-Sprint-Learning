@@ -10,7 +10,9 @@ from app.dependencies.db_deps import get_db
 from app.dependencies.security import (
     create_access_token,
     create_refresh_token,
+    decode_film_cursor,
     decode_token,
+    encode_film_cursor,
     hash_password,
     verify_password,
 )
@@ -33,4 +35,6 @@ __all__ = [
     "create_access_token",
     "create_refresh_token",
     "decode_token",
+    "encode_film_cursor",
+    "decode_film_cursor",
 ]

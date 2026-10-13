@@ -1,27 +1,10 @@
-import base64
-import json
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID
 from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.dependencies.security import decode_film_cursor, encode_film_cursor
 from app.models.film import Film
-
-
-def encode_film_cursor(created_at: datetime, film_id: UUID) -> str:
-    """Encodes created_at and film_id into an opaque URL-safe base64 string."""
-    payload = json.dumps({"ts": created_at.isoformat(), "id": str(film_id)})
-    return base64.urlsafe_b64encode(payload.encode("utf-8")).decode("utf-8")
-
-
-def decode_film_cursor(cursor_str: str) -> Tuple[datetime, UUID]:
-    """Decodes an opaque base64 string back to (created_at, film_id)."""
-    try:
-        raw = base64.urlsafe_b64decode(cursor_str.encode("utf-8")).decode("utf-8")
-        data = json.loads(raw)
-        return datetime.fromisoformat(data["ts"]), UUID(data["id"])
-    except Exception as exc:
-        raise ValueError(f"Invalid cursor token: {exc}") from exc
 
 
 class FilmDAO:
@@ -248,3 +231,4 @@ class FilmDAO:
         stmt = stmt.order_by(Film.title)
         result = await db.execute(stmt)
         return list(result.scalars().all())
+
