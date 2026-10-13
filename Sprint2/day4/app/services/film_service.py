@@ -2,10 +2,12 @@ import json
 import logging
 from typing import Any, Dict, List, Optional
 from uuid import UUID
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import settings
 from app.dao.film_dao import FilmDAO
 from app.dao.review_dao import ReviewDAO
+from app.database.connection import AsyncSessionLocal
 from app.database.redis_client import redis_client
 from app.exceptions.domain_exceptions import (
     FilmAlreadyExistsError,
@@ -13,6 +15,7 @@ from app.exceptions.domain_exceptions import (
     FilmNotFoundError,
 )
 from app.models.film import Film
+from app.models.review import Review
 
 logger = logging.getLogger("film_service")
 
@@ -323,4 +326,46 @@ modify_film = FilmService.modify_film
 soft_remove_film = FilmService.soft_remove_film
 remove_film = FilmService.remove_film
 invalidate_film_cache = FilmService.invalidate_film_cache
+
+
+async def recalculate_film_statistics(film_id: UUID) -> None:
+    """
+    Background Task: Recalculates review_count and average_rating for a film
+    and updates the Film record in the database using its own session.
+    Also invalidates Redis film cache so subsequent queries reflect updated stats.
+    """
+    logger.info("==> [BACKGROUND TASK] Starting statistics recalculation for film %s", film_id)
+    try:
+        async with AsyncSessionLocal() as db:
+            stmt = select(
+                func.count(Review.id),
+                func.coalesce(func.avg(Review.rating), 0.0),
+            ).where(Review.film_id == film_id)
+            result = await db.execute(stmt)
+            count, avg_raw = result.one()
+            avg_rating = round(float(avg_raw), 2)
+
+            await FilmDAO.update_film_statistics(
+                db=db,
+                film_id=film_id,
+                review_count=int(count),
+                average_rating=avg_rating,
+            )
+            logger.info(
+                "==> [BACKGROUND TASK] Successfully updated film %s: review_count=%d, average_rating=%.2f",
+                film_id,
+                int(count),
+                avg_rating,
+            )
+
+        # Invalidate cached film listings so fresh stats are served
+        await FilmService.invalidate_film_cache()
+
+    except Exception as exc:
+        logger.error(
+            "==> [BACKGROUND TASK] Failed to recalculate film %s statistics: %s",
+            film_id,
+            str(exc),
+            exc_info=True,
+        )
 

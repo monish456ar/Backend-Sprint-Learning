@@ -1,6 +1,6 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.dependencies import (
     get_config,
@@ -12,6 +12,7 @@ from app.handlers import review_handler
 from app.models.user import User
 from app.schemas.pagination_schemas import PaginatedResponse
 from app.schemas.review_schemas import ReviewCreate, ReviewResponse, ReviewUpdate
+from app.services.film_service import recalculate_film_statistics
 
 router = APIRouter(tags=["Reviews"])
 
@@ -65,12 +66,15 @@ async def get_film_average_rating(
 async def create_film_review(
     film_id: UUID,
     payload: ReviewCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role("admin", "critic")),
     db: AsyncSession = Depends(get_db),
 ) -> ReviewResponse:
     review_data = payload.model_dump(exclude_unset=True)
     review_data["user_id"] = current_user.id
-    return await review_handler.handle_create_review_for_film(db, film_id, review_data)
+    created_review = await review_handler.handle_create_review_for_film(db, film_id, review_data)
+    background_tasks.add_task(recalculate_film_statistics, film_id)
+    return created_review
 
 
 @router.patch(

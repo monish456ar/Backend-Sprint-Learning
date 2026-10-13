@@ -42,7 +42,9 @@ class FilmResponse(BaseModel):
     genre: str = Field(..., description="Film genre", examples=["Sci-Fi"])
     director: str = Field(..., description="Film director", examples=["Christopher Nolan"])
     hero: str = Field(default="Unknown", description="Lead actor / hero of the film", examples=["Leonardo DiCaprio"])
-    is_deleted:bool=Field(default=False,description="Whether the film is deleted",examples=[False])
+    is_deleted: bool = Field(default=False, description="Whether the film is deleted", examples=[False])
+    review_count: int = Field(default=0, description="Total count of active reviews for this film", examples=[5])
+    average_rating: Optional[float] = Field(default=0.0, description="Calculated average rating of the film", examples=[8.5])
 
     @computed_field
     @property

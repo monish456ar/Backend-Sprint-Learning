@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
-from typing import List, TYPE_CHECKING
-from sqlalchemy import Boolean, DateTime, String, func, text
+from typing import List, Optional, TYPE_CHECKING
+from sqlalchemy import Boolean, DateTime, Float, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import Base
@@ -25,8 +25,8 @@ class Film(Base):
     director: Mapped[str] = mapped_column(String(100), default="Unknown", nullable=False)
     hero: Mapped[str] = mapped_column(String(100), server_default="Unknown", default="Unknown", nullable=False)
     is_deleted: Mapped[bool] = mapped_column(Boolean, server_default="false", default=False, nullable=False)
-
-
+    review_count: Mapped[int] = mapped_column(Integer, server_default="0", default=0, nullable=False)
+    average_rating: Mapped[Optional[float]] = mapped_column(Float, server_default="0.0", default=0.0, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

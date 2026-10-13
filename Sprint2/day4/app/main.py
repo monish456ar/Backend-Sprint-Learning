@@ -1,10 +1,12 @@
 import logging
+import time
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict
 
 from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.config import request_id_ctx, settings, setup_logging
@@ -49,12 +51,26 @@ app = FastAPI(
 access_logger = logging.getLogger("http_access")
 
 
+# ---------------------------------------------------------
+# CORS Middleware: Exclusively allow frontend origin (http://localhost:3000)
+# Disallowing wildcard origins for strict browser security compliance.
+# ---------------------------------------------------------
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
+    expose_headers=["X-Request-ID", "X-Process-Time-Ms"],
+)
+
+
 @app.middleware("http")
 async def request_id_middleware(request: Request, call_next):
     """
     Request-scoped middleware that captures or generates a unique request_id,
-    propagates it into contextvars for structured logging across the request lifecycle,
-    and returns it in the X-Request-ID response header.
+    measures request duration in milliseconds, propagates request_id into contextvars
+    for structured logging, and attaches X-Request-ID and X-Process-Time-Ms headers.
     """
     req_id = (
         request.headers.get("X-Request-ID")
@@ -62,14 +78,21 @@ async def request_id_middleware(request: Request, call_next):
         or str(uuid.uuid4())
     )
     token = request_id_ctx.set(req_id)
+    start_time = time.perf_counter()
+
     try:
         response = await call_next(request)
+        process_time_ms = (time.perf_counter() - start_time) * 1000.0
+
         response.headers["X-Request-ID"] = req_id
+        response.headers["X-Process-Time-Ms"] = f"{process_time_ms:.2f}"
+
         raw_auth = request.headers.get("authorization")
         auth_preview = (raw_auth[:30] + "...") if raw_auth else "None"
         full_path = f"{request.url.path}?{request.url.query}" if request.url.query else request.url.path
+
         access_logger.info(
-            f"HTTP {request.method} {full_path} -> {response.status_code} | Authorization: {auth_preview}"
+            f"HTTP {request.method} {full_path} -> {response.status_code} [{process_time_ms:.2f}ms] | Request-ID: {req_id} | Authorization: {auth_preview}"
         )
         return response
 

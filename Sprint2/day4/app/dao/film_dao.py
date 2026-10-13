@@ -232,3 +232,16 @@ class FilmDAO:
         result = await db.execute(stmt)
         return list(result.scalars().all())
 
+    @staticmethod
+    async def update_film_statistics(
+        db: AsyncSession, film_id: UUID, review_count: int, average_rating: float
+    ) -> None:
+        """UPDATE: Recalculates and updates review_count and average_rating on Film."""
+        stmt = (
+            update(Film)
+            .where(Film.id == film_id)
+            .values(review_count=review_count, average_rating=average_rating)
+        )
+        await db.execute(stmt)
+        await db.commit()
+
